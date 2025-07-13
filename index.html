@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>PTFS ATC24 - Controllers & Aircraft</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+    }
+
+    h1 {
+      text-align: center;
+      margin-top: 15px;
+    }
+
+    #map-container {
+      position: relative;
+      width: 100%;
+      max-width: 1200px;
+      margin: 20px auto;
+    }
+
+    #map {
+      width: 100%;
+      display: block;
+    }
+
+    .controller-marker, .aircraft-marker {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      padding: 4px 6px;
+      font-size: 12px;
+      border-radius: 5px;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .controller-marker {
+      background-color: rgba(0, 123, 255, 0.9);
+      color: white;
+    }
+
+    .aircraft-marker {
+      background-color: rgba(255, 200, 0, 0.9);
+      color: black;
+    }
+
+    #info {
+      text-align: center;
+      margin: 20px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>PTFS ATC24 - Controllers & Aircraft</h1>
+<div id="info">Loading...</div>
+
+<div id="map-container">
+  <img id="map" src="https://m.gjcdn.net/fireside-post-image/900/34463847-n5eacqpk-v4.webp" alt="PTFS Map">
+</div>
+
+<script>
+  const airportCoords = {
+    IBAR: { x: 100, y: 100 }, IHEN: { x: 110, y: 120 }, ILAR: { x: 780, y: 500 },
+    IIAB: { x: 130, y: 110 }, IPAP: { x: 150, y: 140 }, IGRV: { x: 500, y: 280 },
+    IJAF: { x: 160, y: 130 }, IZOL: { x: 100, y: 320 }, ISCM: { x: 170, y: 150 },
+    IDCS: { x: 180, y: 160 }, ITKO: { x: 990, y: 370 }, ILKL: { x: 190, y: 170 },
+    IPPH: { x: 280, y: 550 }, IGAR: { x: 200, y: 180 }, IBLT: { x: 210, y: 190 },
+    IRFD: { x: 640, y: 300 }, IMLR: { x: 220, y: 200 }, ITRC: { x: 230, y: 210 },
+    IBTH: { x: 240, y: 220 }, IUFO: { x: 250, y: 230 }, ISAU: { x: 850, y: 400 },
+    ISKP: { x: 260, y: 240 }
+  };
+
+  const mapBounds = {
+    topLeft:     { lat: 60.0, lon: -140.0 },
+    bottomRight: { lat: 10.0, lon: -40.0 }
+  };
+
+  const map = document.getElementById("map");
+  const container = document.getElementById("map-container");
+
+  function latLonToXY(lat, lon, imageWidth, imageHeight) {
+    const { topLeft, bottomRight } = mapBounds;
+
+    const x = ((lon - topLeft.lon) / (bottomRight.lon - topLeft.lon)) * imageWidth;
+    const y = ((topLeft.lat - lat) / (topLeft.lat - bottomRight.lat)) * imageHeight;
+
+    return { x, y };
+  }
+
+  async function loadData() {
+    const [controllersRes, aircraftRes] = await Promise.all([
+      fetch("https://ptfs.app/api/controllers"),
+      fetch("https://24data.ptfs.app/acft-data")
+    ]);
+
+    const controllers = await controllersRes.json();
+    const aircraft = await aircraftRes.json();
+
+    renderData(controllers, aircraft);
+  }
+
+  function renderData(controllers, aircraft) {
+    container.querySelectorAll(".controller-marker, .aircraft-marker").forEach(el => el.remove());
+
+    const imgWidth = map.clientWidth;
+    const imgHeight = map.clientHeight;
+
+    controllers.forEach(c => {
+      if (!airportCoords[c.airport]) return;
+
+      const coords = airportCoords[c.airport];
+      const marker = document.createElement("div");
+      marker.className = "controller-marker";
+      marker.style.left = coords.x + "px";
+      marker.style.top = coords.y + "px";
+      marker.textContent = `${c.airport} (${c.name})`;
+      container.appendChild(marker);
+    });
+
+    aircraft.forEach(ac => {
+      const { lat, lon, callsign, aircraft: type } = ac;
+      if (lat == null || lon == null) return;
+
+      const { x, y } = latLonToXY(lat, lon, imgWidth, imgHeight);
+
+      const marker = document.createElement("div");
+      marker.className = "aircraft-marker";
+      marker.style.left = x + "px";
+      marker.style.top = y + "px";
+      marker.textContent = `${callsign} (${type})`;
+      container.appendChild(marker);
+    });
+
+    document.getElementById("info").innerText = `${controllers.length} controllers, ${aircraft.length} aircraft`;
+  }
+
+  loadData();
+</script>
+
+</body>
+</html>
